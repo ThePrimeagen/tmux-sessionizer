@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -19,12 +20,33 @@ hydrate() {
     fi
 }
 
+# Default directories
+default_directories="~/ ~/personal ~/personal/dev/env/.config"
+
+# Tmux option to store additional directories for the current session
+session_var="@tmux_sessionizer_dirs"
+
+# If additional directories are passed, store them in the tmux session variable
+if [[ $# -gt 1 ]]; then
+    for dir in "${@:2}"; do
+        existing_dirs=$(tmux show-option -gqv "$session_var")
+        if [[ ! "$existing_dirs" =~ "$dir" ]]; then
+            tmux set-option -gq "$session_var" "$existing_dirs $dir"
+        fi
+    done
+fi
+
+# Retrieve stored directories for the current session
+stored_dirs=$(tmux show-option -gqv "$session_var")
+
+# Combine default directories with the ones stored in the tmux session variable
+directories="$default_directories $stored_dirs"
+
+# Fuzzy find through both default and additional directories
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+    selected=$(find $directories -mindepth 1 -maxdepth 1 -type d | fzf)
 fi
 
 if [[ -z $selected ]]; then
