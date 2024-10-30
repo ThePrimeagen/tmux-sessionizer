@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+CREATE_SESSION_VALUE='Create New Session'
+SESSION_LIST=`tmux list-sessions`
+SESSION_LIST+="\n$CREATE_SESSION_VALUE"
+
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -8,7 +13,7 @@ switch_to() {
 }
 
 has_session() {
-    tmux list-sessions | grep -q "^$1:"
+    echo -e $SESSION_LIST | grep -q "^$1:"
 }
 
 hydrate() {
@@ -22,10 +27,24 @@ hydrate() {
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
+    # Checks if you would like to switch to an existing session
+    # This is nice if you work requires switching accross multiple tmux sessions
+    selected_name=$(
+        echo -e "$SESSION_LIST" | 
+        fzf --reverse | 
+        sed '/^$/d' | 
+        cut -d':' -f1
+    )
+
+    if [[ $selected_name != $CREATE_SESSION_VALUE ]]; then 
+        switch_to $selected_name
+        exit 0
+    fi
     # If someone wants to make this extensible, i'll accept
     # PR
     selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
 fi
+
 
 if [[ -z $selected ]]; then
     exit 0
