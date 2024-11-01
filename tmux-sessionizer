@@ -8,7 +8,7 @@ switch_to() {
 }
 
 has_session() {
-    tmux list-sessions | grep -q "^$1:"
+    tmux list-sessions -F '#{session_name}' | grep -qx "$1"
 }
 
 hydrate() {
