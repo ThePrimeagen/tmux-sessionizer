@@ -61,7 +61,7 @@ if [[ $# -eq 1 ]]; then
     # delete using the tab key in fzf to select multiple
     elif [[ $1 == -delete || $1 == -d ]]; then
         while true; do
-            selected=$(cat "$full_path" | fzf -m)
+            selected=$(cat "$full_path" | fzf -m --cycle)
 
             if [[ -z "$selected" ]]; then
                 exit 0
@@ -118,7 +118,7 @@ hydrate() {
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    selected=$(cat $full_path | fzf)
+    selected=$(cat $full_path | fzf --cycle)
 fi
 
 if [[ -z $selected ]]; then

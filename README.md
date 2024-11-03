@@ -8,7 +8,7 @@ tmux-sessionizer [<partial name of session>]
 
 By default, tmux-sessionizer holds its state in .tmux-sessionizer.txt in your
 $HOME directory, but this can be changed within the top of tmux-sessionizer
-itself
+itself.
 
 Inside of tmux-sessionizer you can also have commands that will automatically
 add filepaths for you on each execution. These files never get saved in the
