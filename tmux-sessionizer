@@ -1,4 +1,53 @@
-#!/usr/bin/env bash
+#/usr/bin/env bash
+#script_dir="$(dirname "$(realpath "$0")")"
+script_dir="$HOME"
+file_name=".tmux-sessionizer.txt"
+full_path="$script_dir/$file_name" 
+
+if [[ ! -e "$full_path" ]]; then
+    touch "$full_path"
+fi
+
+# Add flags for adding, deleting or listing files
+if [[ $# -eq 1 ]]; then
+
+    # add a path to our tmux save file, this accepts stdin and also prevents
+    # duplicates
+    if [[ $1 == -add || $1 == -a ]]; then
+        while read line; do
+    # ensure that the filepath is absolute and it exists
+            if [[ -d $line && "$line" = /* ]]; then
+                if ! grep -qFx $line $full_path; then
+                    echo "$line" >> $full_path
+                fi
+            fi
+        done < "${2:-/dev/stdin}"
+
+    # delete a path from our tmux save file. You can select multiple files to
+    # delete using the tab key in fzf to select multiple
+    elif [[ $1 == -delete || $1 == -d ]]; then
+        while true; do
+            selected=$(cat "$full_path" | fzf -m)
+
+            if [[ -z "$selected" ]]; then
+                exit 0
+            fi
+
+            count=$(echo "$selected" | wc -l)
+
+            if [[ $count -gt 0 ]]; then
+                temp_file=$(mktemp)
+                grep -v -F -x -e "$selected" "$full_path" > "$temp_file"
+                mv "$temp_file" "$full_path"
+            fi
+        done
+    elif [[ $1 == -list || $1 == -l ]]; then
+        cat $full_path
+    fi
+    exit 0
+fi
+
+# switching tmux to the files
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -22,9 +71,7 @@ hydrate() {
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+    selected=$(cat $full_path| fzf)
 fi
 
 if [[ -z $selected ]]; then
