@@ -7,7 +7,8 @@ full_path="$script_dir/$file_name"
 command_created_paths=$(mktemp)
 # Any paths that you want to dynamically update on their own, add with
 # commands. These paths are not shown in the tmux-sesionizer list, but they
-# are selectable with tmux-sessionizer.
+# are selectable with tmux-sessionizer. Any directories shown from here cannot
+# be added with tmux-sessionizer -a 
 commands=(
     #example command, add all directories from your home always.
     "find $HOME -maxdepth 1 -type d"
