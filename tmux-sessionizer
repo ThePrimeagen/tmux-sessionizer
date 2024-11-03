@@ -22,7 +22,7 @@ if [[ ! -e "$full_path" ]]; then
     touch "$full_path"
 fi
 
-# ADDING OR DELETING FILES
+#adding, deleting or listing the tmux-sessionizer list
 if [[ $# -eq 1 ]]; then
 
     # add a path to our tmux save file, this accepts stdin and also prevents
