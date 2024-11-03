@@ -29,7 +29,9 @@ if [[ $# -eq 1 ]]; then
     # duplicates
     if [[ $1 == -add || $1 == -a ]]; then
         while read line; do
-    # ensure that the filepath is absolute and it exists
+            # remove trailing slashes before comparing
+            line="${line%/}"
+            # ensure that the filepath is absolute and it exists
             if [[ -d $line && "$line" = /* ]]; then
                 if ! grep -qFx $line $full_path $command_created_paths; then
                     echo "$line" >> $full_path
