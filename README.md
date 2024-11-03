@@ -10,6 +10,10 @@ By default, tmux-sessionizer holds its state in .tmux-sessionizer.txt in your
 $HOME directory, but this can be changed within the top of tmux-sessionizer
 itself
 
+Inside of tmux-sessionizer you can also have commands that will automatically
+add filepaths for you on each execution. These files never get saved in the
+tmux-sessionizer list as they are dynamically created with the commands.
+
 ## Options
     -a, -add
         Adds full filepaths to your tmux-sessionizer list via stdin or
