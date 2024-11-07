@@ -4,6 +4,7 @@
 script_dir="$HOME"
 # the file where the tmux-sessionizer data will be stored
 file_name=".tmux-sessionizer.txt"
+wildcards=".tmux-sessionizer_wildcards.txt"
 full_path="$script_dir/$file_name" 
 
 # create the tmux-sessionizer state file that remembers what directories to
