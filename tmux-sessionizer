@@ -1,68 +1,49 @@
 #/usr/bin/env bash
-
 # the directory in which the tmux-sessionizer state will be stored
 script_dir="$HOME"
 # the file where the tmux-sessionizer data will be stored
-file_name=".tmux-sessionizer.txt"
-wildcards=".tmux-sessionizer_wildcards.txt"
-full_path="$script_dir/$file_name" 
+direct_paths_filename=".tmux-sessionizer.txt"
+direct_paths_fullpath="$script_dir/$direct_paths_filename" 
 
-# create the tmux-sessionizer state file that remembers what directories to
-# show
-if [[ ! -e "$full_path" ]]; then
-    touch "$full_path"
-fi
+wild_cards_filename=".tmux-sessionizer_wild.txt"
+wild_cards_fullpath="$script_dir/$wild_cards_filename" 
 
-# Write any commands here which will add directories that you want to stay
-# up-to-date. Since directories are usually added to $HOME it is probably a
-# good idea to keep the initial example
-commands=(
-    # Example command
-    "find $HOME -maxdepth 1 -type d"
-)
+if [[ $# -gt 0 ]]; then # If any flags, or extra params were given
 
-combined_results=""
-
-# Gather the results of all the commands
-for cmd in "${commands[@]}"; do 
-    combined_results+=$(eval "$cmd"; echo)
-done
-
-# if there were any results for the commands we add it to the tmux-sessionizer
-# list, but we also ensure no duplicates are added
-if [[ -n "$combined_results" ]]; then
-    temp_file=$(mktemp)
-    if { echo "$combined_results"; cat "$full_path"; } | sort -u > "$temp_file"; then
-        mv "$temp_file" "$full_path"
-    else
-        echo "Error: Failed to create sorted output."
-        rm -f "$temp_file"
-    fi
-fi
-
-
-#adding, deleting or listing the tmux-sessionizer list
-if [[ $# -eq 1 ]]; then
-
-    # add a path to our tmux save file, this accepts stdin and also prevents
-    # duplicates
     if [[ $1 == -add || $1 == -a ]]; then
-        while read line; do
-            # remove trailing slashes before comparing
-            line="${line%/}"
-            # ensure that the filepath is absolute and it exists
-            if [[ -d $line && "$line" = /* ]]; then
-                if ! grep -qFx $line $full_path ; then
-                    echo "$line" >> $full_path
+        if [[ $# -eq 2 ]]; then # if a filepath was given
+            input_path=$2;
+            # If the user wants to add their current path
+            path=$(pwd)                
+            if [[ "$input_path" == "." ]]; then
+                if ! grep -qxF $path $direct_paths_fullpath; then
+                    echo "$path" >> "$direct_paths_fullpath"
+                fi
+            elif [[ "$input_path" == "all" ]]; then
+                path_with_star="${path%/}/*"
+                if ! grep -qxF "$path_with_star" $wild_cards_fullpath; then
+                    echo "$path_with_star" >> "$wild_cards_fullpath"
                 fi
             fi
-        done < "${2:-/dev/stdin}"
+        fi
+
+        # TODO DEAL WITH PIPED DATA
+        #while read line; do
+        #    # remove trailing slashes before comparing
+        #    line="${line%/}"
+        #    # ensure that the filepath is absolute and it exists
+        #    if [[ -d $line && "$line" = /* ]]; then
+        #        if ! grep -qFx $line $direct_paths_fullpath ; then
+        #            echo "$line" >> $direct_paths_fullpath
+        #        fi
+        #    fi
+        #done < "${2:-/dev/stdin}"
 
     # delete a path from our tmux save file. You can select multiple files to
     # delete using the tab key in fzf to select multiple
     elif [[ $1 == -delete || $1 == -d ]]; then
         while true; do
-            selected=$(cat "$full_path" | fzf -m --cycle --scroll-off 10)
+            selected=$(cat "$direct_paths_fullpath" "$wild_cards_fullpath" | fzf -m --cycle --scroll-off 10)
 
             if [[ -z "$selected" ]]; then
                 exit 0
@@ -71,19 +52,16 @@ if [[ $# -eq 1 ]]; then
             count=$(echo "$selected" | wc -l)
 
             if [[ $count -gt 0 ]]; then
-                temp_file=$(mktemp)
-                grep -v -F -x -e "$selected" "$full_path" > "$temp_file"
-                mv "$temp_file" "$full_path"
-                rm $temp_file
+                awk -v pattern="$selected" '$0 != pattern' "$direct_paths_fullpath" > "$direct_paths_fullpath.tmp" && mv "$direct_paths_fullpath.tmp" "$direct_paths_fullpath"
+                awk -v pattern="$selected" '$0 != pattern' "$wild_cards_fullpath" > "$wild_cards_fullpath.tmp" && mv "$wild_cards_fullpath.tmp" "$wild_cards_fullpath"
             fi
         done
     # simply lists all paths in your tmux-sessionizer list to standard out
     elif [[ $1 == -list || $1 == -l ]]; then
-        cat $full_path
+        cat $direct_paths_fullpath $wild_cards_fullpath
     fi
     exit 0
 fi
-
 
 # remove any directories in the tmux-sessionizer list that no longer exist
 valid_paths=$(mktemp)
@@ -91,8 +69,17 @@ while read -r line; do
     if [[ -d "$line" ]]; then
         echo "$line" >> $valid_paths
     fi
-done < "$full_path"
-mv "$valid_paths" "$full_path"
+done < "$direct_paths_fullpath"
+mv "$valid_paths" "$direct_paths_fullpath"
+
+valid_paths=$(mktemp)
+while read -r line; do
+    base_dir="${line%/*}"
+    if [[ -d "$base_dir" ]]; then
+        echo "$line" >> $valid_paths
+    fi
+done < "$wild_cards_fullpath"
+mv "$valid_paths" "$wild_cards_fullpath"
 
 
 # switching tmux to the files
@@ -119,8 +106,14 @@ hydrate() {
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    selected=$(cat $full_path | fzf --cycle --scroll-off 10)
+    temp=$(mktemp)
+    while read -r line; do
+        echo $(find $line -type d)
+        find $line -type d >> $temp
+    done < "$wild_cards_fullpath"
+    selected=$(cat $direct_paths_fullpath $temp | fzf --cycle --scroll-off 10)
 fi
+
 
 if [[ -z $selected ]]; then
     exit 0

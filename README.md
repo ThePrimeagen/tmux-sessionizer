@@ -48,3 +48,4 @@ tmux-sessionizer -l
 
 if you execute tmux-sessionizer without any parameters it will assume FZF and
 try to fuzzy find over a set of directories.
+/home/john/personal/tmux-sessionizer/direct_paths_fullpath
