@@ -29,7 +29,7 @@ function search_roots_directories_scan {
     for item in "$1"/*; do
         if [ -d "$item" ]; then
             if [ -f "$item/.tmux-scan" ]; then
-                DIRECTORIES+=($item)
+                DIRECTORIES+=("$item")
  
                 search_roots_directories_scan "$item"
             fi
@@ -44,28 +44,25 @@ else
       search_roots_directories_scan "$ROOT"
     done
 
-    exclude_folder=""
+    search_directories=()
 
-    # Remove .tmux-scan directories
-    for directory in "${DIRECTORIES[@]}"; do
-        exclude_folder+="($directory$)|"
-    done
-
-    # Remove .tmux-exclude directories
+    # Only include directories without .tmux-exclude or .tmux-scan directories
     for directory in "${DIRECTORIES[@]}"; do
       for item in "$directory"/*; do
           if [ -d "$item" ]; then
               if [ -f "$item/.tmux-exclude" ]; then
-                exclude_folder+="($item$)|"
+                continue
               fi
+              if [ -f "$item/.tmux-scan" ]; then
+                continue
+              fi
+              search_directories+=("$item")
           fi
       done
     done
 
-    exclude_folder=${exclude_folder%"|"}
-
     # Show FZF
-    selected=$(find "${DIRECTORIES[@]}" -mindepth 1 -maxdepth 1 -type d | rg -v "${exclude_folder}" | fzf)
+    selected=$(printf '%s\n' "${search_directories[@]}" | fzf)
 fi
 
 if [[ -z $selected ]]; then
