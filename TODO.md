@@ -1,11 +1,3 @@
-* [X] Make quick command to add the current working directory
-
-* [X] Make quick command to add all directories in the current working
-      directory
-
-* [ ] After the quick commands, resolve how to do this when piping an entire
-      file
-
 * [ ] handle duplicate entries, maybe do a check before inserting another path
 
 * [ ] make a separate list for wildcard dirs such as /home/user/* These will
