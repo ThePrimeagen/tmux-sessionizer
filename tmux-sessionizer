@@ -10,21 +10,29 @@ wild_cards_fullpath="$script_dir/$wild_cards_filename"
 
 if [[ $# -gt 0 ]]; then # If any flags, or extra params were given
 
+# we want it to be tmux-sessionizer -a/add ANY SORTA PATH (optional depth DEFAULT 0)
+
     if [[ $1 == -add || $1 == -a ]]; then
-        if [[ $# -eq 2 ]]; then # if a filepath was given
-            input_path=$2;
-            # If the user wants to add their current path
-            path=$(pwd)                
-            if [[ "$input_path" == "." ]]; then
-                if ! grep -qxF $path $direct_paths_fullpath; then
-                    echo "$path" >> "$direct_paths_fullpath"
-                fi
-            elif [[ "$input_path" == "all" ]]; then
-                path_with_star="${path%/}/*"
-                if ! grep -qxF "$path_with_star" $wild_cards_fullpath; then
-                    echo "$path_with_star" >> "$wild_cards_fullpath"
+        if [[ $# -gt 1 ]]; then 
+            input_path=$(realpath "$2"); # make the path absolute
+            if [[ ! -d "$input_path" ]]; then # check to ensure its a valid path
+                echo "Error: Invalid path provided" >&2
+                exit 1
+            fi
+            if [[ $# -gt 2 ]]; then
+                if [[ $3 -eq "all" ]]; then
+                    path_with_star="${input_path%/}/*"
+                    if ! grep -qxF "$path_with_star" $wild_cards_fullpath; then
+                        echo "$path_with_star" >> "$wild_cards_fullpath"
+                        exit 0
+                    fi
                 fi
             fi
+            if ! grep -qxF "$input_path" $direct_paths_fullpath; then
+                echo "$input_path" >> "$direct_paths_fullpath"
+                exit 0
+            fi
+            exit 1
         fi
 
         # TODO DEAL WITH PIPED DATA
@@ -52,8 +60,11 @@ if [[ $# -gt 0 ]]; then # If any flags, or extra params were given
             count=$(echo "$selected" | wc -l)
 
             if [[ $count -gt 0 ]]; then
-                awk -v pattern="$selected" '$0 != pattern' "$direct_paths_fullpath" > "$direct_paths_fullpath.tmp" && mv "$direct_paths_fullpath.tmp" "$direct_paths_fullpath"
-                awk -v pattern="$selected" '$0 != pattern' "$wild_cards_fullpath" > "$wild_cards_fullpath.tmp" && mv "$wild_cards_fullpath.tmp" "$wild_cards_fullpath"
+                while IFS= read -r line; do
+                    escaped_line=$(printf '%s' "$line" | sed 's/[&/\*]/\\&/g')
+                    sed -i "/^$escaped_line$/d" "$wild_cards_fullpath"
+                    sed -i "/^$escaped_line$/d" "$direct_paths_fullpath"
+                done <<< "$selected"
             fi
         done
     # simply lists all paths in your tmux-sessionizer list to standard out
@@ -108,8 +119,8 @@ if [[ $# -eq 1 ]]; then
 else
     temp=$(mktemp)
     while read -r line; do
-        echo $(find $line -type d)
-        find $line -type d >> $temp
+        base_dir="${line%/*}"
+        find $base_dir -type d -maxdepth 1 >> $temp
     done < "$wild_cards_fullpath"
     selected=$(cat $direct_paths_fullpath $temp | fzf --cycle --scroll-off 10)
 fi
