@@ -122,7 +122,7 @@ else
         base_dir="${line%/*}"
         find $base_dir -type d -maxdepth 1 >> $temp
     done < "$wild_cards_fullpath"
-    selected=$(cat $direct_paths_fullpath $temp | fzf --cycle --scroll-off 10)
+    selected=$(cat $direct_paths_fullpath $temp | awk '!seen[$0]++' | fzf --cycle --scroll-off 10)
 fi
 
 
