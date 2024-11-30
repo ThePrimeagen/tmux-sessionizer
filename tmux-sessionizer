@@ -8,6 +8,19 @@ direct_paths_fullpath="$script_dir/$direct_paths_filename"
 wild_cards_filename=".tmux-sessionizer_wild.txt"
 wild_cards_fullpath="$script_dir/$wild_cards_filename" 
 
+
+# create the filepaths and change their perms if the files do not yet exist
+if [ ! -f "$direct_paths_fullpath" ]; then
+    echo "sudo is required to initialize the script, this will create and chmod the needed files"
+    sudo touch "$direct_paths_fullpath"
+    sudo chmod 666 "$direct_paths_fullpath"
+fi
+
+if [ ! -f "$wild_cards_fullpath" ]; then
+    sudo touch "$wild_cards_fullpath"
+    sudo chmod 666 "$wild_cards_fullpath"
+fi
+
 if [[ $# -gt 0 ]]; then # If any flags, or extra params were given
 
 # we want it to be tmux-sessionizer -a/add ANY SORTA PATH (optional depth DEFAULT 0)
