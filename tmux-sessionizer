@@ -11,14 +11,13 @@ wild_cards_fullpath="$script_dir/$wild_cards_filename"
 
 # create the filepaths and change their perms if the files do not yet exist
 if [ ! -f "$direct_paths_fullpath" ]; then
-    echo "sudo is required to initialize the script, this will create and chmod the needed files"
-    sudo touch "$direct_paths_fullpath"
-    sudo chmod 666 "$direct_paths_fullpath"
+echo "sudo is required to initialize the script, this will create and chmod the needed files"
+    sudo touch "$direct_paths_fullpath" && sudo chmod 666 "$direct_paths_fullpath"
 fi
 
 if [ ! -f "$wild_cards_fullpath" ]; then
-    sudo touch "$wild_cards_fullpath"
-    sudo chmod 666 "$wild_cards_fullpath"
+    sudo touch "$wild_cards_fullpath" && sudo chmod 666 "$wild_cards_fullpath"
+    exit 1
 fi
 
 if [[ $# -gt 0 ]]; then # If any flags, or extra params were given
@@ -94,7 +93,7 @@ while read -r line; do
         echo "$line" >> $valid_paths
     fi
 done < "$direct_paths_fullpath"
-mv "$valid_paths" "$direct_paths_fullpath"
+cat "$valid_paths" > "$direct_paths_fullpath"
 
 valid_paths=$(mktemp)
 while read -r line; do
@@ -103,8 +102,7 @@ while read -r line; do
         echo "$line" >> $valid_paths
     fi
 done < "$wild_cards_fullpath"
-mv "$valid_paths" "$wild_cards_fullpath"
-
+cat "$valid_paths" > "$wild_cards_fullpath"
 
 # switching tmux to the files
 switch_to() {
