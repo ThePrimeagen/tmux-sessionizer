@@ -1,4 +1,4 @@
-#/usr/bin/env bash
+#!/usr/bin/env bash
 # the directory in which the tmux-sessionizer state will be stored
 script_dir="$HOME"
 # the file where the tmux-sessionizer data will be stored
