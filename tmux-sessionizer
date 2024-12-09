@@ -1,7 +1,7 @@
-!/usr/bin/env bash
+#!/usr/bin/env bash
 
 ################################################################################
-#                           TMUX Sesisonizer
+#                           TMUX Sessionizer
 #
 #         The TMUX Sessionizer is a tool for creating or switching 
 #         sessions in tmux by (project / directory) names.
@@ -20,7 +20,7 @@ txs [-r][-v][-h][-p][-n {Name Arg}] {Directory Args...}
 
 Options:
  -r: Use sub directories for selection (depth = 1)
- -v: Vebose logging
+ -v: Verbose logging
  -p: Enable preview in fzf
  -h: Help
  -n: Specify the session name
@@ -28,23 +28,23 @@ Options:
 Examples
  1.) Open a single directory with no selection
 
-      txs ~/My_Project
+      tmux-sessionizer ~/My_Project
 
  2.) Fuzzy find between multiple projects
 
-      txs ~/My_Project1 ~/My_Project2
+      tmux-sessionizer ~/My_Project1 ~/My_Project2
 
  3.) Fuzzy Find a project folder in a directory
 
-      txs -r ~/My_Repos
+      tmux-sessionizer -r ~/My_Repos
 
  4.) Open a directory with as specified session name
 
-      txs -n Projcet ~/My_Project
+      tmux-sessionizer -n Project ~/My_Project
 
  5.) Fuzzy Find a project folders in multiple directories
 
-      txs -r ~/My_Repos ~/My_Configs
+      tmux-sessionizer -r ~/My_Repos ~/My_Configs
 --------------------------------------------------------------------------------
 "
 
@@ -113,7 +113,7 @@ open_session(){
   local dir=$2
   local tmux_running=$(pgrep tmux)
 
-  verbose "Openeing Session"
+  verbose "Opening Session"
   verbose "Name: $name"
   verbose "Directory: $dir"
 
@@ -199,7 +199,7 @@ tmux_session_status(){
 
 
 select_directory(){
-  local fzf_defualt=( '--header-lines=1' 
+  local fzf_default=( '--header-lines=1' 
                       '--color=dark'  
                       '--ansi' 
                       '--delimiter' '/'
@@ -224,11 +224,11 @@ select_directory(){
   selected_dir=$(  echo -e "$fzf_header\n$*" | \
                    column -s, -t | \
                    sed s/^i/"${start_icon}"/\;s/^o/"${stop_icon}"/ |  \
-                   fzf "${fzf_defualt[@]}" "${fzf_preview[@]}" | \
+                   fzf "${fzf_default[@]}" "${fzf_preview[@]}" | \
                    awk -F '[ \t]*' '{ print $2 }' )
 
   if [[ "$selected_dir" = ""  ]];then
-    log "${red}Error${clear}: Fzf failed to retrive directory $dirs"
+    log "${red}Error${clear}: Fzf failed to retrieve directory $dirs"
     return 1
   fi
 
@@ -241,7 +241,7 @@ get_name(){
   if [[ "$name" = '' ]]; then 
 
     if ! name=$( basename "$1" | tr . _ ); then
-      log "${red}Error${clear}: Getting baename failed, $selected_dir"
+      log "${red}Error${clear}: Getting basename failed, $selected_dir"
       return 1
     fi 
 
