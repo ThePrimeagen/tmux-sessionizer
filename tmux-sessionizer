@@ -1,4 +1,113 @@
 #!/usr/bin/env bash
+
+################################################################################
+#                           TMUX Sessionizer
+#
+#         The TMUX Sessionizer is a tool for creating or switching 
+#         sessions in tmux by (project / directory) names.
+#
+#
+################################################################################
+
+
+#Find Directory
+
+
+usage="\
+--------------------------------------------------------------------------------
+TMUX Sessionizer
+txs [-r][-v][-h][-p][-n {Name Arg}] {Directory Args...}
+
+Options:
+ -r: Use sub directories for selection (depth = 1)
+ -v: Verbose logging
+ -p: Enable preview in fzf
+ -h: Help
+ -n: Specify the session name
+
+Examples
+ 1.) Open a single directory with no selection
+
+      tmux-sessionizer ~/My_Project
+
+ 2.) Fuzzy find between multiple projects
+
+      tmux-sessionizer ~/My_Project1 ~/My_Project2
+
+ 3.) Fuzzy Find a project folder in a directory
+
+      tmux-sessionizer -r ~/My_Repos
+
+ 4.) Open a directory with as specified session name
+
+      tmux-sessionizer -n Project ~/My_Project
+
+ 5.) Fuzzy Find a project folders in multiple directories
+
+      tmux-sessionizer -r ~/My_Repos ~/My_Configs
+--------------------------------------------------------------------------------
+"
+
+#-------------------------------Global-Definitions------------------------------
+
+# Text Colors
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+blue='\033[0;34m'
+magenta='\033[0;35m'
+cyan='\033[0;36m'
+clear='\033[0m'
+
+
+recursive='false' # A list of directories
+name=''
+help='false'
+verbose='false'
+preview='false'
+
+while getopts 'rvphn:' flag; do
+  case "${flag}" in
+    r) recursive="true" ;;
+    v) verbose="true" ;;
+    h) help="true";;
+    p) preview="true";;
+    n) name="${OPTARG}" ;;
+    *) help="true";;
+  esac
+done
+
+# Shift the options after getopts
+shift $(($OPTIND - 1))
+
+dirs="$@"
+sub_dirs=""
+session_dirs=""
+selected_dir=""
+
+
+if [[ "$help" = true ]]; then
+  echo "$usage"
+  exit 2
+fi
+
+#---------------------------------Functions-------------------------------------
+
+# set echo >&2 to avoid pollution of function capture
+log() {
+  echo -e >&2 "$1"
+}
+
+# Verbose is basically just debug
+verbose() {
+
+  if [ "$verbose" = true ]; then
+
+    echo -e >&2 "${yellow}$1${clear}"
+
+  fi
+}
+
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -19,30 +128,214 @@ hydrate() {
     fi
 }
 
-if [[ $# -eq 1 ]]; then
-    selected=$1
-else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+open_session(){
+  local name=$1
+  local dir=$2
+  local tmux_running=$(pgrep tmux)
+
+  verbose "Opening Session"
+  verbose "Name: $name"
+  verbose "Directory: $dir"
+
+  if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
+      tmux new-session -s $name -c $dir -e "TMUX_SESSIONIZER_PROJECT_DIR=\"$dir\"" -e "TMUX_SESSIONIZER_PROJECT_NAME=\"$name\""
+      hydrate $name $dir
+      exit 0
+  fi
+
+  if ! has_session $name; then
+      tmux new-session -ds $name -c $dir -e "TMUX_SESSIONIZER_PROJECT_DIR=\"$dir\"" -e "TMUX_SESSIONIZER_PROJECT_NAME=\"$name\""
+      hydrate $name $dir
+  fi
+
+  switch_to $name
+}
+
+test_directories(){
+  for i in $*; do
+
+    if [[ ! -d "$i" ]]; then
+      log "${red}Error${clear}: Not a valid directory $i"
+      return 1
+    fi
+
+  done
+  return 0
+}
+
+get_sub_directories(){
+
+  for i in $*; do
+    sub_dirs="$sub_dirs "$( find "$i" -mindepth 1 -maxdepth 1 -type d)
+  done
+
+  if [[ "$sub_dirs" = "" ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+
+# Adds Prefix of [i/o] to directories
+tmux_session_status(){
+  # local directies=$*
+  local sessions=""
+
+  if [[ -n "$TMUX" ]]; then
+    sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
+  fi 
+
+  for d in $*; do
+
+    local dir_name="$( basename $d | tr . _ )"
+    local match=false
+
+    for s in $sessions; do
+
+      if [[ "$dir_name" == "$s" ]]; then
+        printf "i,$d\n"
+        match=true
+      fi
+
+    done
+
+    if ! "$match"; then
+       printf "o,$d\n"
+    fi
+
+  done
+
+}
+
+
+select_directory(){
+  local fzf_default=( '--header-lines=1' 
+                      '--color=dark'  
+                      '--ansi' 
+                      '--delimiter' '/'
+                      '--nth' '1,-1'
+                      '--with-nth' '1,-1' )
+  local fzf_preview=()
+  local fzf_header='status,/directory' 
+  local start_icon=$( printf "${green}${clear}" )
+  local stop_icon=$( printf "${yellow}${clear}" ) 
+
+  if "$preview"; then
+    # TMUX changes all periods(.) to underscores(_)
+    preview_script="\
+        session_name=\"\$( echo {-1} | sed 's/\\./_/g' )\"
+        tmux capture-pane -ept \$session_name 2>/dev/null
+      "
+    fzf_preview=( '--preview' "$preview_script"
+                  '--preview-window' 'nohidden' 
+                  '--preview-label' 'Session'  )
+  fi
+
+  selected_dir=$(  echo -e "$fzf_header\n$*" | \
+                   column -s, -t | \
+                   sed s/^i/"${start_icon}"/\;s/^o/"${stop_icon}"/ |  \
+                   fzf "${fzf_default[@]}" "${fzf_preview[@]}" | \
+                   awk -F '[ \t]*' '{ print $2 }' )
+
+  if [[ "$selected_dir" = ""  ]];then
+    log "${red}Error${clear}: Fzf failed to retrieve directory $dirs"
+    return 1
+  fi
+
+  verbose "Selected Dir: $selected_dir"
+  return 0
+}
+
+get_name(){
+
+  if [[ "$name" = '' ]]; then 
+
+    if ! name=$( basename "$1" | tr . _ ); then
+      log "${red}Error${clear}: Getting basename failed, $selected_dir"
+      return 1
+    fi 
+
+    verbose "Basename: $name"
+
+  fi
+
+  return 0
+}
+
+#---------------------------------Execution-------------------------------------
+
+
+if [[ $dirs = "" ]]; then
+  log "$usage" 
+  exit 2
 fi
 
-if [[ -z $selected ]]; then
-    exit 0
+verbose "Directory Count: $#"
+
+if [[ $recursive = false && $# = 1  ]]; then
+
+  if ! test_directories $dirs ; then
+   exit 1
+  fi
+  
+  selected_dir="$dirs"
+
+  if ! get_name $selected_dir; then
+    exit 1
+  fi 
+  
+  open_session $name $selected_dir
+
+  exit 0
 fi
 
-selected_name=$(basename "$selected" | tr . _)
-tmux_running=$(pgrep tmux)
 
-if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-    tmux new-session -s $selected_name -c $selected
-    hydrate $selected_name $selected
-    exit 0
+if [[ $recursive = false ]]; then
+
+  if ! test_directories $dirs ; then
+   exit 1
+  fi
+
+  dirs=$( tmux_session_status $dirs | sort )
+
+  if ! select_directory $dirs; then
+   exit 1
+  fi
+
+  if ! get_name $selected_dir; then
+    exit 1
+  fi 
+
+  open_session $name $selected_dir
+
+  exit 0
 fi
 
-if ! has_session $selected_name; then
-    tmux new-session -ds $selected_name -c $selected
-    hydrate $selected_name $selected
+if [[ $recursive = true ]]; then
+
+  if ! test_directories $dirs ; then
+   exit 1
+  fi
+
+  if ! get_sub_directories $dirs; then
+    exit 1
+  fi
+
+  sub_dirs=$( tmux_session_status $sub_dirs | sort )
+
+  if ! select_directory "$sub_dirs"; then
+   exit 1
+  fi
+
+  if ! get_name $selected_dir; then
+    exit 1
+  fi 
+
+  open_session $name $selected_dir
+
+  exit 0
 fi
 
-switch_to $selected_name
+exit 0
+
