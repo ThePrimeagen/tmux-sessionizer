@@ -108,6 +108,26 @@ verbose() {
   fi
 }
 
+switch_to() {
+    if [[ -z $TMUX ]]; then
+        tmux attach-session -t $1
+    else
+        tmux switch-client -t $1
+    fi
+}
+
+has_session() {
+    tmux list-sessions | grep -q "^$1:"
+}
+
+hydrate() {
+    if [ -f $2/.tmux-sessionizer ]; then
+        tmux send-keys -t $1 "source $2/.tmux-sessionizer" c-M
+    elif [ -f $HOME/.tmux-sessionizer ]; then
+        tmux send-keys -t $1 "source $HOME/.tmux-sessionizer" c-M
+    fi
+}
+
 open_session(){
   local name=$1
   local dir=$2
@@ -118,26 +138,17 @@ open_session(){
   verbose "Directory: $dir"
 
   if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-    verbose "New Session 1"
-    tmux new-session -s "$name" -c "$dir" \
-    -e "TSX_PROJECT_DIR=\"$dir\"" -e "TSX_PROJECT_NAME=\"$name\""
-    exit 0
+      tmux new-session -s $name -c $dir
+      hydrate $name $dir
+      exit 0
   fi
 
-  if ! tmux has-session -t="$name" 2>/dev/null; then
-    verbose "New Session 2"
-    tmux new-session -ds "$name" -c "$dir" \
-    -e "TSX_PROJECT_DIR=\"$dir\"" -e "TSX_PROJECT_NAME=\"$name\""
+  if ! has_session $name; then
+      tmux new-session -ds $name -c $dir
+      hydrate $name $dir
   fi
 
-  if [[ -z $TMUX ]]; then
-    verbose "Attatch Session"
-    tmux attach -t "$name"
-  else
-    tmux switch-client -t "$name"
-  fi
-
-  exit 1
+  switch_to $name
 }
 
 test_directories(){
