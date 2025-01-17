@@ -138,13 +138,13 @@ open_session(){
   verbose "Directory: $dir"
 
   if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-      tmux new-session -s $name -c $dir
+      tmux new-session -s $name -c $dir -e "TMUX_SESSIONIZER_PROJECT_DIR=\"$dir\"" -e "TMUX_SESSIONIZER_PROJECT_NAME=\"$name\""
       hydrate $name $dir
       exit 0
   fi
 
   if ! has_session $name; then
-      tmux new-session -ds $name -c $dir
+      tmux new-session -ds $name -c $dir -e "TMUX_SESSIONIZER_PROJECT_DIR=\"$dir\"" -e "TMUX_SESSIONIZER_PROJECT_NAME=\"$name\""
       hydrate $name $dir
   fi
 
