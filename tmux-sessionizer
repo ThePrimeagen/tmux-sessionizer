@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -12,19 +13,31 @@ has_session() {
 }
 
 hydrate() {
-    if [ -f $2/.tmux-sessionizer ]; then
-        tmux send-keys -t $1 "source $2/.tmux-sessionizer" c-M
-    elif [ -f $HOME/.tmux-sessionizer ]; then
-        tmux send-keys -t $1 "source $HOME/.tmux-sessionizer" c-M
+    if [ -f "$2/.tmux-sessionizer" ]; then
+        tmux send-keys -t $1 "source $2/.tmux-sessionizer" C-m
+    elif [ -f "$HOME/.tmux-sessionizer" ]; then
+        tmux send-keys -t $1 "source $HOME/.tmux-sessionizer" C-m
+    fi
+}
+
+get_paths() {
+    local default_paths=(
+        # NOTE: these have changed for test @Prime return these to your wish
+        "$HOME/personal"
+        "$HOME/work"
+        "$HOME/personal/dev/env/.config"
+    )
+
+    if [[ -n $TMUX_PATHS ]]; then
+        IFS=":" read -r -a custom_paths <<<"$TMUX_PATHS"
+        default_paths+=("${custom_paths[@]}")
     fi
 }
 
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+    selected=$(find $(get_paths) -mindepth 1 -maxdepth 1 -type d | fzf)
 fi
 
 if [[ -z $selected ]]; then
@@ -32,6 +45,7 @@ if [[ -z $selected ]]; then
 fi
 
 selected_name=$(basename "$selected" | tr . _)
+
 tmux_running=$(pgrep tmux)
 
 if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
