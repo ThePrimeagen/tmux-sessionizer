@@ -9,4 +9,5 @@ tmux-sessionizer [<partial name of session>]
 if you execute tmux-sessionizer without any parameters it will assume FZF and
 try to fuzzy find over a set of directories.
 
-TODO: waiting on that directory list to be dynamic :) (go a head make pr if you want)
+If you want to have a default set of paths but extend these on the fly then simply set `TMUX_PATHS` for example:
+`export TMUX_PATHS="$HOME/Documents"`
