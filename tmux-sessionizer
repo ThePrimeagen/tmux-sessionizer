@@ -1,48 +1,71 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+    local level="$1"
+    local message="$2"
+    local color=""
+    
+    case "$level" in
+        INFO)  color="\033[1;32m" ;; # Green
+        WARN)  color="\033[1;33m" ;; # Yellow
+        ERROR) color="\033[1;31m" ;; # Red
+    esac
+    
+    echo -e "${color}[$level]\033[0m $message"
+}
+
 switch_to() {
-    if [[ -z $TMUX ]]; then
-        tmux attach-session -t $1
+    local session="$1"
+    
+    if [[ -z "${TMUX:-}" ]]; then
+        # Not in a tmux session, attach to the specified session
+        tmux attach-session -t "$session"
     else
-        tmux switch-client -t $1
+        tmux switch-client -t "$session"
     fi
 }
 
 has_session() {
-    tmux list-sessions | grep -q "^$1:"
+    local session="$1"
+    tmux list-sessions 2>/dev/null | grep -q "^${session}:"
 }
 
 hydrate() {
-    if [ -f $2/.tmux-sessionizer ]; then
-        tmux send-keys -t $1 "source $2/.tmux-sessionizer" c-M
-    elif [ -f $HOME/.tmux-sessionizer ]; then
-        tmux send-keys -t $1 "source $HOME/.tmux-sessionizer" c-M
+    local session="$1"
+    local dir="$2"
+    
+    if [ -f "$dir/.tmux-sessionizer" ]; then
+        tmux send-keys -t "$session" "source $dir/.tmux-sessionizer" C-m
+    elif [ -f "$HOME/.tmux-sessionizer" ]; then
+        tmux send-keys -t "$session" "source $HOME/.tmux-sessionizer" C-m
     fi
 }
 
 if [[ $# -eq 1 ]]; then
-    selected=$1
+    selected="$1"
 else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+    selected=$(find ~/dev ~/personal ~/dev/env/.config -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf)
 fi
 
-if [[ -z $selected ]]; then
+if [[ -z "$selected" ]]; then
     exit 0
 fi
 
 selected_name=$(basename "$selected" | tr . _)
-tmux_running=$(pgrep tmux)
 
-if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-    tmux new-session -s $selected_name -c $selected
-    hydrate $selected_name $selected
+tmux_running=$(pgrep tmux || echo "")
+
+if [[ -z "${TMUX:-}" ]] && [[ -z "$tmux_running" ]]; then
+    tmux new-session -s "$selected_name" -c "$selected"
+    hydrate "$selected_name" "$selected"
     exit 0
 fi
 
-if ! has_session $selected_name; then
-    tmux new-session -ds $selected_name -c $selected
-    hydrate $selected_name $selected
+if ! has_session "$selected_name"; then
+    tmux new-session -ds "$selected_name" -c "$selected"
+    hydrate "$selected_name" "$selected"
 fi
 
-switch_to $selected_name
+switch_to "$selected_name"
+exit 0
