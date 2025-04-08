@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+
+# Space separated array of directories set by the user, if the user doesn't 
+# specify any, the -p|--prompt flag will be used as default behavior, making
+# the user select the directories interactively
+# E.g. dir_list=(~/MyPath ~/MysecondPath/Nested /etc/Some/Other/Path)
+dir_list=()
+
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -19,17 +26,57 @@ hydrate() {
     fi
 }
 
-if [[ $# -eq 1 ]]; then
-    selected=$1
-else
+find_directories() {
     # If someone wants to make this extensible, i'll accept
     # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
-fi
+	# Read user input, space separated if the prompt option was set or no
+	# user directory list was provided in the script.
+	# I do think it's better to make the default behavior to be the interactive
+	# shell, and only run the user set directories by passing a command argument
+	# but I didn't want to make break changes
+	if [[ "$action" == "prompt" ]] || [[ "${#dir_list[@]}" == 0 ]]; then
+		read -rp "Enter list of directories to search, space separated: " list_of_directories
+		# for loop to expand '~' to home directory and add paths to array, it isn't
+		# beautiful, but yeah.
+		for token in ${list_of_directories}; do
+			# Bash parameter expansion for 
+			# home directories(found on blog nickjanetakis.com/blog)
+			token="${token/#~/${HOME}}"
+			if [[ -d $token ]]; then
+				dir_list+=("$token")
+			else
+				echo "tmux-sessionizer: no such file or directory: $token"
+				exit 1
+			fi	
+		done
+	fi
+	# Reads the dir_list either via prompt or user defined list
+    selected=$(find "${dir_list[@]}" -mindepth 1 -maxdepth 1 -type d | fzf)
+}
 
-if [[ -z $selected ]]; then
-    exit 0
-fi
+action=""
+# Parse arguments, loop through them, if it isn't the -p|--prompt option,
+# treats it as a partial name of session
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		-p|--prompt)
+			action="prompt"
+			shift ;;
+		*)
+			action="selected"
+			selected="$1"
+			shift ;;
+	esac
+done
+
+# Handle actions, default would be the default directories set by the user in
+# the script by the user, maybe ?
+case "$action" in
+	prompt) find_directories ;;
+	selected) ;;
+	*) find_directories ;; # we exit just because, well, it shouldn't be anything that set
+				 # the variable to any other value than those two
+esac
 
 selected_name=$(basename "$selected" | tr . _)
 tmux_running=$(pgrep tmux)
@@ -46,3 +93,4 @@ if ! has_session $selected_name; then
 fi
 
 switch_to $selected_name
+
