@@ -6,7 +6,10 @@ its a script that does everything awesome at all times
 tmux-sessionizer [<partial name of session>]
 ```
 
+### Changing search paths
+```bash
+export TMUX_SESSIONIZER_PATHS="~/projects ~/work"
+```
+
 if you execute tmux-sessionizer without any parameters it will assume FZF and
 try to fuzzy find over a set of directories.
-
-TODO: waiting on that directory list to be dynamic :) (go a head make pr if you want)
