@@ -1,4 +1,110 @@
 #!/usr/bin/env bash
+# the directory in which the tmux-sessionizer state will be stored
+script_dir="$HOME"
+# the file where the tmux-sessionizer data will be stored
+direct_paths_filename=".tmux-sessionizer.txt"
+direct_paths_fullpath="$script_dir/$direct_paths_filename" 
+
+wild_cards_filename=".tmux-sessionizer_wild.txt"
+wild_cards_fullpath="$script_dir/$wild_cards_filename" 
+
+
+# create the filepaths and change their perms if the files do not yet exist
+if [ ! -f "$direct_paths_fullpath" ]; then
+echo "sudo is required to initialize the script, this will create and chmod the needed files"
+    sudo touch "$direct_paths_fullpath" && sudo chmod 666 "$direct_paths_fullpath"
+fi
+
+if [ ! -f "$wild_cards_fullpath" ]; then
+    sudo touch "$wild_cards_fullpath" && sudo chmod 666 "$wild_cards_fullpath"
+    exit 1
+fi
+
+if [[ $# -gt 0 ]]; then # If any flags, or extra params were given
+
+# we want it to be tmux-sessionizer -a/add ANY SORTA PATH (optional depth DEFAULT 0)
+
+    if [[ $1 == -add || $1 == -a ]]; then
+        if [[ $# -gt 1 ]]; then 
+            input_path=$(realpath "$2"); # make the path absolute
+            if [[ ! -d "$input_path" ]]; then # check to ensure its a valid path
+                echo "Error: Invalid path provided" >&2
+                exit 1
+            fi
+            if [[ $# -gt 2 ]]; then
+                if [[ $3 -eq "all" ]]; then
+                    path_with_star="${input_path%/}/*"
+                    if ! grep -qxF "$path_with_star" $wild_cards_fullpath; then
+                        echo "$path_with_star" >> "$wild_cards_fullpath"
+                        exit 0
+                    fi
+                fi
+            fi
+            if ! grep -qxF "$input_path" $direct_paths_fullpath; then
+                echo "$input_path" >> "$direct_paths_fullpath"
+                exit 0
+            fi
+            exit 1
+        fi
+
+        # TODO DEAL WITH PIPED DATA
+        #while read line; do
+        #    # remove trailing slashes before comparing
+        #    line="${line%/}"
+        #    # ensure that the filepath is absolute and it exists
+        #    if [[ -d $line && "$line" = /* ]]; then
+        #        if ! grep -qFx $line $direct_paths_fullpath ; then
+        #            echo "$line" >> $direct_paths_fullpath
+        #        fi
+        #    fi
+        #done < "${2:-/dev/stdin}"
+
+    # delete a path from our tmux save file. You can select multiple files to
+    # delete using the tab key in fzf to select multiple
+    elif [[ $1 == -delete || $1 == -d ]]; then
+        while true; do
+            selected=$(cat "$direct_paths_fullpath" "$wild_cards_fullpath" | fzf -m --cycle --scroll-off 10)
+
+            if [[ -z "$selected" ]]; then
+                exit 0
+            fi
+
+            count=$(echo "$selected" | wc -l)
+
+            if [[ $count -gt 0 ]]; then
+                while IFS= read -r line; do
+                    escaped_line=$(printf '%s' "$line" | sed 's/[&/\*]/\\&/g')
+                    sed -i "/^$escaped_line$/d" "$wild_cards_fullpath"
+                    sed -i "/^$escaped_line$/d" "$direct_paths_fullpath"
+                done <<< "$selected"
+            fi
+        done
+    # simply lists all paths in your tmux-sessionizer list to standard out
+    elif [[ $1 == -list || $1 == -l ]]; then
+        cat $direct_paths_fullpath $wild_cards_fullpath
+    fi
+    exit 0
+fi
+
+# remove any directories in the tmux-sessionizer list that no longer exist
+valid_paths=$(mktemp)
+while read -r line; do
+    if [[ -d "$line" ]]; then
+        echo "$line" >> $valid_paths
+    fi
+done < "$direct_paths_fullpath"
+cat "$valid_paths" > "$direct_paths_fullpath"
+
+valid_paths=$(mktemp)
+while read -r line; do
+    base_dir="${line%/*}"
+    if [[ -d "$base_dir" ]]; then
+        echo "$line" >> $valid_paths
+    fi
+done < "$wild_cards_fullpath"
+cat "$valid_paths" > "$wild_cards_fullpath"
+
+# switching tmux to the files
 switch_to() {
     if [[ -z $TMUX ]]; then
         tmux attach-session -t $1
@@ -22,10 +128,14 @@ hydrate() {
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+    temp=$(mktemp)
+    while read -r line; do
+        base_dir="${line%/*}"
+        find $base_dir -type d -maxdepth 1 >> $temp
+    done < "$wild_cards_fullpath"
+    selected=$(cat $direct_paths_fullpath $temp | awk '!seen[$0]++' | fzf --cycle --scroll-off 10)
 fi
+
 
 if [[ -z $selected ]]; then
     exit 0
