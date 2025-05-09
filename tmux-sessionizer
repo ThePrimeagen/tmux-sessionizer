@@ -19,12 +19,50 @@ hydrate() {
     fi
 }
 
+readonly ROOTS=("$HOME" "$HOME/personal" "$HOME/personal/dev/env/.config")
+
+# Search Roots projects directories
+
+DIRECTORIES=("${ROOTS[@]}")
+
+function search_roots_directories_scan {
+    for item in "$1"/*; do
+        if [ -d "$item" ]; then
+            if [ -f "$item/.tmux-scan" ]; then
+                DIRECTORIES+=("$item")
+ 
+                search_roots_directories_scan "$item"
+            fi
+        fi
+    done
+}
+
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    # If someone wants to make this extensible, i'll accept
-    # PR
-    selected=$(find ~/ ~/personal ~/personal/dev/env/.config -mindepth 1 -maxdepth 1 -type d | fzf)
+    for ROOT in "${ROOTS[@]}"; do
+      search_roots_directories_scan "$ROOT"
+    done
+
+    search_directories=()
+
+    # Only include directories without .tmux-exclude or .tmux-scan directories
+    for directory in "${DIRECTORIES[@]}"; do
+      for item in "$directory"/*; do
+          if [ -d "$item" ]; then
+              if [ -f "$item/.tmux-exclude" ]; then
+                continue
+              fi
+              if [ -f "$item/.tmux-scan" ]; then
+                continue
+              fi
+              search_directories+=("$item")
+          fi
+      done
+    done
+
+    # Show FZF
+    selected=$(printf '%s\n' "${search_directories[@]}" | fzf)
 fi
 
 if [[ -z $selected ]]; then
