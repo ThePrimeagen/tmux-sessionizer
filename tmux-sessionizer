@@ -12,6 +12,8 @@ CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.conf"
 # TS_EXTRA_SEARCH_PATHS=(~/ghq:3 ~/Git:3 ~/.config:2)
 # # if set this override the TS_MAX_DEPTH (1)
 # TS_MAX_DEPTH=2
+# if set to [True|yes|on|1] use fd instead of find
+# TS_USE_FD=true
 ##
 # Customize Fuzzy Command (Not Limited to fzf Options)
 # Allows use of other fuzzy find commands like 'sk'
@@ -102,8 +104,8 @@ find_dirs() {
             path="$entry"
         fi
 
-        # if USE_FD is set to TRUE use fd instead of find
-        if is_true "$USE_FD"; then
+        # if TS_USE_FD is set to TRUE use fd instead of find
+        if is_true "$TS_USE_FD"; then
             [[ -d "$path" ]] && fd --type d --min-depth 1 --max-depth "${depth:-${TS_MAX_DEPTH:-1}}" --exclude .git . "$path"
         else
             [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
