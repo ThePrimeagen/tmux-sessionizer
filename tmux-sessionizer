@@ -12,6 +12,14 @@ CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.conf"
 # TS_EXTRA_SEARCH_PATHS=(~/ghq:3 ~/Git:3 ~/.config:2)
 # # if set this override the TS_MAX_DEPTH (1)
 # TS_MAX_DEPTH=2
+##
+# Customize Fuzzy Command (Not Limited to fzf Options)
+# Allows use of other fuzzy find commands like 'sk'
+##
+# in a terminal
+# TS_FUZZY_CMD=(fzf --height 40% --reverse --border-label ' tmux-sessionizer ' --border --prompt '⚡  ')
+# in a tmux session
+# TS_FUZZY_CMD_TMUX=(fzf --tmux bottom,40% --reverse --border-label ' tmux-sessionizer ' --border --prompt '⚡  ')
 # ------------------------
 
 # test if the config file exists
@@ -19,6 +27,13 @@ if [[ -f "$CONFIG_FILE" ]]; then
     # shellcheck source=/dev/null
     source "$CONFIG_FILE"
 fi
+
+# this should work on all bash version
+is_true() {
+  local value
+  value="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  [[ "$value" == "true" || "$value" == "yes" || "$value" == "on" || "$value" == "1" ]]
+}
 
 sanity_check() {
     if ! command -v tmux &>/dev/null; then
@@ -87,14 +102,23 @@ find_dirs() {
             path="$entry"
         fi
 
-        [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
+        # if USE_FD is set to TRUE use fd instead of find
+        if is_true "$USE_FD"; then
+            [[ -d "$path" ]] && fd --type d --min-depth 1 --max-depth "${depth:-${TS_MAX_DEPTH:-1}}" --exclude .git . "$path"
+        else
+            [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
+        fi
     done
 }
 
 if [[ $# -eq 1 ]]; then
     selected="$1"
 else
-    selected=$(find_dirs | fzf)
+    if [[ -n "${TMUX}" ]]; then
+        selected=$(find_dirs |"${TS_FUZZY_CMD_TMUX[@]:-fzf}")
+    else
+        selected=$(find_dirs |"${TS_FUZZY_CMD[@]:-fzf}")
+    fi
 fi
 
 if [[ -z $selected ]]; then
