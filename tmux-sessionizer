@@ -105,7 +105,20 @@ if [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
     selected="${BASH_REMATCH[1]}"
 fi
 
-selected_name=$(basename "$selected" | tr . _)
+if [[ -d "$selected" ]]; then
+    IFS='/' read -ra parts <<< "${selected%/}"  # Supprime un éventuel slash final
+    part_count="${#parts[@]}"
+    if (( part_count >= 2 )); then
+        last="${parts[part_count-1]}"
+        second_last="${parts[part_count-2]}"
+        selected_name="${second_last}_${last}"
+    else
+        selected_name="${parts[0]}"
+    fi
+    selected_name="${selected_name//./_}"
+else
+    selected_name="$selected"
+fi
 tmux_running=$(pgrep tmux)
 
 if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
