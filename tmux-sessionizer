@@ -68,12 +68,20 @@ fi
 # utility function to find directories
 find_dirs() {
     # list TMUX sessions
+    current_session=""
+    current_path=""
+    all_session_paths=()
+
     if [[ -n "${TMUX}" ]]; then
         current_session=$(tmux display-message -p '#S')
-        tmux list-sessions -F "[TMUX] #{session_name}" 2>/dev/null | grep -vFx "[TMUX] $current_session"
-    else
-        tmux list-sessions -F "[TMUX] #{session_name}" 2>/dev/null
+        current_path=$(tmux display-message -p -t "$current_session" '#{session_path}')
     fi
+
+    while IFS= read -r path; do
+        all_session_paths+=("$path")
+    done < <(tmux list-sessions -F '#{session_path}' 2>/dev/null)
+
+    tmux list-sessions -F "[TMUX] #{session_name}" 2>/dev/null | grep -vFx "[TMUX] $current_session"
 
     # note: TS_SEARCH_PATHS is an array of paths to search for directories
     # if the path ends with :number, it will search for directories with a max depth of number ;)
@@ -87,7 +95,10 @@ find_dirs() {
             path="$entry"
         fi
 
-        [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
+        if [[ -d "$path" ]]; then
+            find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" \
+                -path '*/.git' -prune -o -type d -print | grep -vFx -f <(printf "%s\n" "${all_session_paths[@]}")
+        fi
     done
 }
 
