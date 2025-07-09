@@ -55,6 +55,19 @@ bindkey -s '\et' "tmux-sessionizer -s 1\n"
 bindkey -s '\en' "tmux-sessionizer -s 2\n"
 bindkey -s '\es' "tmux-sessionizer -s 3\n"
 ```
+**oh-my-zsh**
+Install zsh using a proper plugin from [oh-my-zsh](https://github.com/jeffreytse/zsh-vi-mode?tab=readme-ov-file#as-an-oh-my-zsh-custom-plugin).
+Then, add the following to your `~/.zshrc`:
+
+```bash
+zvm_after_init_commands+=("bindkey -s '^f' 'tmux-sessionizer\n'")
+zvm_after_init_commands+=("bindkey -s '\eh' 'tmux-sessionizer -s 0\n'")
+zvm_after_init_commands+=("bindkey -s '\et' 'tmux-sessionizer -s 1\n'")
+zvm_after_init_commands+=("bindkey -s '\en' 'tmux-sessionizer -s 2\n'")
+zvm_after_init_commands+=("bindkey -s '\es' 'tmux-sessionizer -s 3\n'")
+```
+
+Doing so will ensure that the keybindings are set up after other potentially conflicting keybindings are initialized.
 
 **tmux**
 ```bash
