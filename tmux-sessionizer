@@ -318,7 +318,7 @@ if [[ ! -z $session_cmd ]]; then
 elif [[ ! -z $user_selected ]]; then
     selected="$user_selected"
 else
-    selected=$(find_dirs | fzf)
+    LC_ALL=C selected=$(find_dirs | sort --dictionary-order | fzf)
 fi
 
 if [[ -z $selected ]]; then
